@@ -11,10 +11,10 @@ import shutil
 
 class GFTP:
 
-    def __init__(self, mode, ip ="localhost", port=8888, *, fileloc="./files/"):
+    def __init__(self, mode, ip ="localhost", port=8888, *, fileloc="files"):
         import os
         import sys
-
+        fileloc = os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), fileloc)
         if not os.path.exists(fileloc):
             print(f"Directory {fileloc} not found!\ncreating a directory for files to '{fileloc}'...")
             try:
