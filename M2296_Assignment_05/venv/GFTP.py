@@ -247,7 +247,6 @@ class GFTP:
             formatted = formatted.strip("\n")
             # conn.sendall(bytes(formatted, "utf-8"))
         elif "Windows" in platform.system():
-            import subprocess
             data = subprocess.run(["dir", self.__fileloc, "/A-D"], shell=True, stdout=subprocess.PIPE).stdout
             data = str(data).split("\\r\\n")
             count = 0
