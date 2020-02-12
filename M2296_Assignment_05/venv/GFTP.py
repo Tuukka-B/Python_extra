@@ -65,26 +65,34 @@ class GFTP:
         """ 
         instructions for creating a self-signed cert:
         https://pankajmalhotra.com/Simple-HTTPS-Server-In-Python-Using-Self-Signed-Certs
-        as the cn is named "localhost", the certificate validation might not work over network...
+        as the Canonical Name in the cert is named "localhost", the certificate validation might not work over network...
         """
         self.__file = None
 
     def __str__(self):
         if self.__ip:
-            return f"Hello, I'm a program designed to server General File Transfer Protocol operations! I save files to {self.__fileloc} and I communicate via host-name or address '{self.__ip}' through port {self.__port}.\ncurrently I'm running in SERVER -mode!"
+            return f"Hello, I'm a program designed to server General File Transfer Protocol operations! I save files " \
+                   f"to {self.__fileloc} and I communicate via host-name or address '{self.__ip}' through port " \
+                   f"{self.__port}.\ncurrently I'm running in SERVER -mode!"
         if self.__remote_ip:
-            return f"Hello,  I'm a program designed to server General File Transfer Protocol operations! I have been configured as a CLIENT and I wish to connect to server '{self.__remote_ip}' through port '{self.__remote_port}'."
+            return f"Hello,  I'm a program designed to server General File Transfer Protocol operations! I have been " \
+                   f"configured as a CLIENT and I wish to connect to server '{self.__remote_ip}' through port " \
+                   f"'{self.__remote_port}'."
 
     """the methods below are public commands so they are visible if imported as a module """
 
-    def check_free_space(self, filesize):
+    @staticmethod
+    def check_free_space(filesize):
         usage = shutil.disk_usage(os.getcwd())
-        # input(f"{usage}, {os.getcwd()}")
-        # input(type(usage))
         usage = str(usage).strip(")")
         freespace = int(usage.split("=")[3])
-        # input(freespace > filesize)
         return freespace > filesize
+
+    @staticmethod
+    def exit():
+        # this is only done by the client, server will not want to exit if it doesn't have to
+        sys.exit(0)
+
 
     def upload(self, filename, source_folder=None):
         if self.__mode == "server":
@@ -125,6 +133,7 @@ class GFTP:
         self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__s.bind((self.__ip, self.__port))
         ssock = context.wrap_socket(self.__s, server_side=True)
+        print("Server is online, waiting for requests...")
         ssock.listen(5)
 
         conn, addr = None, None
@@ -132,14 +141,12 @@ class GFTP:
             try:
                 conn, addr = None, None
                 (conn, addr) = ssock.accept()
-                # print(conn.version())
                 print(f"Connected to {addr[0]}")
                 start_new_thread(self.__handle_command, (conn, ssock))
             except KeyboardInterrupt:
                 self.__error("Connection was manually shut down by server", conn=None)
                 self.__exit(conn=ssock)
                 self.exit()
-
 
     def __client_connect(self):
         # creates a socket in the first run, subsequent runs establish connection to server
@@ -149,7 +156,7 @@ class GFTP:
             context.verify_mode = ssl.CERT_REQUIRED
             context.check_hostname = True
             context.load_verify_locations(self.__certloc)
-            if self.__first_run:  # first run is for if we want to do multiple operations with 1 client (not implemented)
+            if self.__first_run: # first run is for if we want to do multiple operations with 1 client (not implemented)
                 self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.__ssl = context.wrap_socket(self.__s, server_hostname=self.__ssl_servername)
                 self.__first_run = False
@@ -168,17 +175,18 @@ class GFTP:
         command = None
         authchecksum = None
         try:
+            # initial command and authentication from the server is received below.
             c = conn.recv(self.__len)
             if c == b"":
                 print("Connection was closed by client!")
                 print("Listening for new connections...")
                 exit()
+            # all data is sent packed in the beginning, so we unpack it with our own module.
             data = sha_struct.unpackdata(c, int(self.__len / 4))
             data = data.decode("utf-8")
             command = data.split("\r\n")[0]
             authchecksum = data.split("\r\n")[1]
         except Exception:
-            # print("Having an error")
             self.__error("Invalid command received", conn=conn)
             return None
 
@@ -210,7 +218,7 @@ class GFTP:
         exit()
 
     def __authenticate(self, command, *, pgploc):
-        # only client uses this method. It can only be called from withing GFTP
+        # only client uses this method. It can only be called from withing GFTP (private method)
 
         hash = sha_struct.genhash(pgploc) + "\r\n"
         data = command + hash
@@ -239,10 +247,10 @@ class GFTP:
             formatted = formatted.strip("\n")
             # conn.sendall(bytes(formatted, "utf-8"))
         elif "Windows" in platform.system():
-            #Untested code commented out below, it probably doesn't list the dir we want it to list
-            formatted = subprocess.run(["dir", self.__fileloc, "/b", "/s", "/A-D", "/o:gn"], stdout=subprocess.PIPE).stdout.decode("utf-8")
-            # conn.sendall(bytes(ls, "utf-8"))
-        # the good thing with this method was that you get more data than with os.listdir
+            formatted = subprocess.run(["dir", self.__fileloc, "/b", "/s", "/A-D", "/o:gn"], stdout=subprocess.PIPE).\
+                stdout.decode("utf-8")
+        # the good thing with the methods above is that you get more data than with os.listdir (coded and formatted
+        # below), though os.listdir is platform-neutral
             """try:
                 filelist = os.listdir(self.__fileloc)
                 # note that too big a file name will break the list formatting
@@ -293,7 +301,8 @@ class GFTP:
             output = output.strip("!")
         except Exception as e:
             output = str(output, "utf-8")
-            # the error is sent packed, if unpacking fails (raises Exception), we got a true list and just need to decode
+            # the error is sent packed, if unpacking fails (raises Exception),
+            # we got a true list and just need to decode
         print(output)
 
     def __download_client(self, filename, destination_folder=None):
@@ -328,7 +337,7 @@ class GFTP:
             else:
                 filepath = os.path.join(self.__fileloc, filename)
         except Exception as e:
-            self.__error(f"Could not proceed with determining a filepath while sending a file\n{e}", conn=client, local=True)
+            self.__error(f"Could not proceed with determining a file path while sending a file\n{e}", conn=client, local=True)
             if self.__mode == "client":
                 self.__exit(conn=client)
             return None
@@ -359,7 +368,6 @@ class GFTP:
                 answer = client.recv(self.__len)
 
                 if answer: # this means the connection was not closed by the server, which means an error happened
-                    # print("error rivi 331")
                     error = sha_struct.unpackdata(answer, int(self.__len / 4)).decode("utf-8").strip("!")
                     self.__error(error, conn="closed", local=True)
                     self.__exit(conn=self.__ssl)
@@ -401,7 +409,7 @@ class GFTP:
             unpacked = unpacked.decode("utf-8")
             filename = unpacked.split("\r\n")[0]
             checksum = unpacked.split("\r\n")[1]
-            filesize = int(unpacked.split("\r\n")[2].strip("!"))  # unused
+            filesize = int(unpacked.split("\r\n")[2].strip("!"))
         except IndexError as e:
             # we know, that if we don't get everything we need with split, that the server didn't send it
             error = sha_struct.unpackdata(received, int(self.__len/4)).decode("utf-8").strip("!")
@@ -425,7 +433,7 @@ class GFTP:
         else:
             filepath = os.path.join(self.__fileloc, filename)
         if os.path.exists(filepath):
-            self.__error(("File named '{}' already exists in current directory.").format(filename), conn=client, local=True)
+            self.__error(("File named {} already exists in current directory.").format(filename), conn=client, local=True)
             if self.__mode == "client":
                 self.__exit(conn=client)
             return None
@@ -438,7 +446,6 @@ class GFTP:
         try:
             with open(filepath, 'wb') as file:
                 print(f"Receiving data and writing to file in {filepath}...")
-                #   raise ValueError(closingBytes)
                 data = True
                 while data:
                     # input(client)
@@ -460,12 +467,6 @@ class GFTP:
                 error = filename.strip("!")
                 self.__error(error, conn="closed", local=True)
                 return None
-
-        # if conn:
-            # the server always have to have the final word, so it sends a meaningless message to client and end
-            # the connection
-            # removed because the server can just send a closing sequence
-            # client.send(bytes("ok", "utf-8"))
 
         if not sha_struct.checkhash(checksum, filepath): # function returns True or False
             os.remove(filepath)
@@ -489,7 +490,8 @@ class GFTP:
         """
         error = None
         if self.__mode == "server":
-            error = f"\rThe server reports that the following error happened and terminated all socket and file-handling functions:\n{errcode}"
+            error = f"\rThe server reports that the following error happened and terminated all socket and " \
+                    f"file-handling functions:\n{errcode}"
         else:
             error = errcode
         if conn:
@@ -498,12 +500,12 @@ class GFTP:
                 conn.sendall(p_error)
                 print(f"The following error was sent to client:\n\"{error}\"")
             elif not local and conn != "closed":
-                    # (not local) implies that the error happens on our own side
-                    recvd_e = conn.recv(self.__len)
-                    e = sha_struct.unpackdata(recvd_e, int(self.__len/4)).decode("utf-8").strip("!")
-                    print(e)
+                # (not local) implies that the error happens on our own side
+                recvd_e = conn.recv(self.__len)
+                e = sha_struct.unpackdata(recvd_e, int(self.__len/4)).decode("utf-8").strip("!")
+                print(e)
             else:
-                #if this executes, we have a local error (the mode is client and local=True)
+                # if this executes, we have a local error (the mode is client and local=True)
                 if conn != "closed":
                     server_sends = True
                     while server_sends:
@@ -519,19 +521,13 @@ class GFTP:
         if conn:
             conn.close()
         if self.__ssl:
-            #print("sending closing sequence..")
             self.__ssl.close()
         elif ssock:
-            #print("server ssl socket is closed...")
             ssock.close()
             pass
         if self.__s:
             self.__s.close()
 
-    def exit(self):
-        # this is only done by the client, server will not want to exit if it doesn't have to
-        sys.exit(0)
 
 if __name__ == "__main__":
-    g = GFTP(mode="server")
-    print(g.check_free_space())
+    print("This script should be run as a module. A front-end for this module is supplied by M2296_assignment05.py.")
