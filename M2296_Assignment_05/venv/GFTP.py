@@ -236,19 +236,32 @@ class GFTP:
         """"
         If GFTP's host is Windows, the list command looks a bit different. But ls is great for Linux, so let's use it!
         """
+        formatted = ""
         if "Linux" in platform.system():
             ls = subprocess.run(["ls", "-ogh", self.__fileloc], stdout=subprocess.PIPE).stdout.decode("utf-8")
-            formatted = ""
             data = ls.split("\n")
             for i in data:
                 i = i.strip()
                 i = i[13:]
-                formatted += i + "\n"
+                formatted += "\n" + i + "\n"
             formatted = formatted.strip("\n")
             # conn.sendall(bytes(formatted, "utf-8"))
         elif "Windows" in platform.system():
-            formatted = subprocess.run(["dir", self.__fileloc, "/b", "/s", "/A-D", "/o:gn"], stdout=subprocess.PIPE).\
-                stdout.decode("utf-8")
+            import subprocess
+            data = subprocess.run(["dir", self.__fileloc, "/A-D"], shell=True, stdout=subprocess.PIPE).stdout
+            data = str(data).split("\\r\\n")
+            count = 0
+            for line in data:
+                if count < 4:
+                    #Jätetään huomiotta 4 ensimmäistä riviä
+                    count +=1
+                    continue
+                formatted += line + "\n"
+            #Puhdistustoimia....
+            formatted = formatted.replace("\\xff", " ")
+            formatted = formatted.rstrip("\n")
+            formatted = formatted.rstrip("\'")
+            formatted = formatted.rstrip("\n")
         # the good thing with the methods above is that you get more data than with os.listdir (coded and formatted
         # below), though os.listdir is platform-neutral
             """try:
