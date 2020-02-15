@@ -15,6 +15,8 @@ Getting started 101:
 * start server with "python M2296_assignment05.py server localhost 8888"
 * connect to server with client by "python M2296_assignment05.py client localhost 8888 <command>"
 
+Because the certificate is only valid for localhost, the client and the server must operate on the same computer and connect through loopback address-space.
+
 Below is an old readme for reference.
 --------------------------------------------------------------------------------------------------------------------------------------------
 
