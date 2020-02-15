@@ -1,3 +1,23 @@
+This program is my final assignment in Protocol Programming course at JAMK. The purpose of this protocol is to transfer files between client and a host -instance of the protocol. Current features are implemented:
+* Encryption of all traffic with TLS
+* Certificate handling to used with TLS (localhost/loopback-ONLY)
+* File integrity checks / fragmentation preventation made possible by checksums
+* Rudimentary error condition handling (TO-DO: make this better, right now it's not good)
+* Both Windows and Linux support
+* Uniform packet size for ease of use
+
+The protocol supports these operations:
+* List all available files (LIST operation)
+* Download a file from server (DOWNLOAD operation)
+* Upload a file to server (UPLOAD operation)
+
+Getting started 101:
+* start server with "python M2296_assignment05.py server localhost 8888"
+* connect to server with client by "python M2296_assignment05.py client localhost 8888 <command>"
+
+Below is an old readme for reference.
+--------------------------------------------------------------------------------------------------------------------------------------------
+
 First of all, read SPEC_UPGRADE.txt for explanation of changed specifications.
 
 Second, start the program M2296_assignment05.py and type "server" or "client" after the python command, for example "python3 M2296_assignment05.py server". This will give you argparse's help-page of the server arguments. 
